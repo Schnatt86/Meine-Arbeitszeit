@@ -1,599 +1,532 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Zeiterfassung & Stundenzettel</title>
-    <!-- React & Tailwind CSS CDN -->
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        @keyframes fadeInUp {
-            from {
-                opacity: 0;
-                transform: translate(-50%, 15px);
-            }
-            to {
-                opacity: 1;
-                transform: translate(-50%, 0);
-            }
-        }
-        .animate-toast {
-            animation: fadeInUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-        }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Zeiterfassung</title>
+  
+  <!-- Web-App Meta-Tags für iPhone & Android -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Zeiterfassung">
+  <link rel="apple-touch-icon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%231e40af'/><rect x='25' y='35' width='50' height='38' rx='5' fill='none' stroke='white' stroke-width='6'/><path d='M40 35 V28 A10 10 0 0 1 60 28 V35' fill='none' stroke='white' stroke-width='6'/><circle cx='50' cy='54' r='12' fill='%231e40af' stroke='white' stroke-width='4'/><path d='M50 54 L50 47 M50 54 L55 54' stroke='white' stroke-width='3' stroke-linecap='round'/></svg>">
 
-        /* PRINT STYLES - GARANTIERT EXACTLY 1 A4 PAGE */
-        @page {
-            size: A4 portrait;
-            margin: 6mm;
-        }
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <style>
+    /* Absicherung gegen riesige Icons vor dem Laden von Tailwind */
+    svg {
+      max-width: 100%;
+      height: auto;
+    }
+    
+    /* A4-Druckoptimierung: Exakt 1 Seite */
+    @media print {
+      @page {
+        size: A4 portrait;
+        margin: 8mm;
+      }
+      body {
+        background: white !important;
+        color: black !important;
+        font-size: 10pt;
+        line-height: 1.2;
+      }
+      .no-print {
+        display: none !important;
+      }
+      .print-only {
+        display: block !important;
+      }
+      .print-container {
+        box-shadow: none !important;
+        border: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        width: 100% !important;
+      }
+      table {
+        width: 100% !important;
+        border-collapse: collapse !important;
+        font-size: 8.5pt !important;
+      }
+      th, td {
+        border: 1px solid #333 !important;
+        padding: 2px 4px !important;
+      }
+      th {
+        background-color: #f1f5f9 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+    }
 
-        @media print {
-            body {
-                background: white !important;
-                color: black !important;
-                padding: 0 !important;
-                margin: 0 !important;
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
-            }
-            .no-print {
-                display: none !important;
-            }
-            .print-only {
-                display: block !important;
-            }
-            .print-sheet {
-                width: 100% !important;
-                max-width: 100% !important;
-                margin: 0 !important;
-                padding: 0 !important;
-                box-shadow: none !important;
-                background: white !important;
-            }
-            tr {
-                page-break-inside: avoid !important;
-            }
-        }
-
-        .print-only {
-            display: none;
-        }
-    </style>
+    .print-only {
+      display: none;
+    }
+  </style>
 </head>
-<body class="bg-slate-100 font-sans text-slate-800 antialiased min-h-screen">
-    <div id="root"></div>
+<body class="bg-slate-100 text-slate-800 font-sans min-h-screen flex flex-col antialiased">
 
-    <script type="text/babel">
-        const { useState, useEffect, useMemo, useRef } = React;
+  <!-- Header / Navigation (Nur Web) -->
+  <header class="bg-blue-900 text-white p-4 shadow-md no-print sticky top-0 z-20">
+    <div class="max-w-md mx-auto flex justify-between items-center">
+      <div class="flex items-center gap-3">
+        <!-- App Logo SVG -->
+        <svg class="w-8 h-8 flex-shrink-0" viewBox="0 0 100 100" fill="none">
+          <rect width="100" height="100" rx="22" fill="#3b82f6"/>
+          <rect x="25" y="35" width="50" height="38" rx="5" fill="none" stroke="white" stroke-width="6"/>
+          <path d="M40 35 V28 A10 10 0 0 1 60 28 V35" fill="none" stroke="white" stroke-width="6"/>
+          <circle cx="50" cy="54" r="12" fill="#3b82f6" stroke="white" stroke-width="4"/>
+          <path d="M50 54 L50 47 M50 54 L55 54" stroke="white" stroke-width="3" stroke-linecap="round"/>
+        </svg>
+        <h1 class="text-xl font-bold tracking-tight">Zeiterfassung</h1>
+      </div>
+      <button onclick="window.print()" class="bg-blue-700 hover:bg-blue-600 text-white text-xs px-3 py-2 rounded-lg flex items-center gap-1 transition">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+        Export / Drucken
+      </button>
+    </div>
+  </header>
 
-        const TYPES = [
-            { id: 'arbeit', label: 'Arbeit', icon: '💼', isAbsence: false },
-            { id: 'urlaub', label: 'Urlaub', icon: '🌴', isAbsence: true },
-            { id: 'krank', label: 'Krank', icon: '🩺', isAbsence: true },
-            { id: 'kind', label: 'Kind', icon: '👶', isAbsence: true },
-            { id: 'feiertag', label: 'Feiertag', icon: '🎉', isAbsence: true },
-            { id: 'frei', label: 'Frei', icon: '☕', isAbsence: false },
-        ];
+  <!-- Hauptinhalt -->
+  <main class="flex-1 max-w-md w-full mx-auto p-4 pb-24 print-container">
+    
+    <!-- DRUCK-HEADER (Nur beim Drucken sichtbar) -->
+    <div class="print-only mb-4 border-b-2 border-slate-800 pb-2">
+      <div class="flex justify-between items-end">
+        <div>
+          <h1 class="text-xl font-bold text-slate-900">Arbeitszeit-Nachweis</h1>
+          <p class="text-sm text-slate-600">Monatsübersicht & Stundenzettel</p>
+        </div>
+        <div class="text-right">
+          <p class="text-sm font-semibold" id="print-month-title">Monat: -</p>
+        </div>
+      </div>
+    </div>
 
-        const MONTH_NAMES = [
-            "Januar", "Februar", "März", "April", "Mai", "Juni", 
-            "Juli", "August", "September", "Oktober", "November", "Dezember"
-        ];
+    <!-- TAB 1: TAG ERFASSEN -->
+    <div id="tab-form" class="space-y-4 no-print">
+      <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
+        <h2 class="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+          <span>Tag erfassen / bearbeiten</span>
+        </h2>
 
-        // Hilfsfunktion: Heutiges Datum als YYYY-MM-DD
-        const getTodayString = () => {
-            const today = new Date();
-            const year = today.getFullYear();
-            const month = String(today.getMonth() + 1).padStart(2, '0');
-            const day = String(today.getDate()).padStart(2, '0');
-            return `${year}-${month}-${day}`;
-        };
+        <form id="entry-form" onsubmit="saveEntry(event)" class="space-y-4">
+          <!-- Datum -->
+          <div>
+            <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Datum</label>
+            <input type="date" id="input-date" required class="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-slate-800 font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none">
+          </div>
 
-        function App() {
-            const [tab, setTab] = useState('eintragen'); // 'eintragen' | 'uebersicht'
-            const [selectedDate, setSelectedDate] = useState(getTodayString);
-            const [entryType, setEntryType] = useState('arbeit');
-            const [beginn, setBeginn] = useState('08:00');
-            const [ende, setEnde] = useState('16:30');
-            const [pause, setPause] = useState('30');
-            const [wochenSoll, setWochenSoll] = useState(28.5);
+          <!-- Status / Typ -->
+          <div>
+            <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Status</label>
+            <div class="grid grid-cols-3 gap-2">
+              <label class="cursor-pointer">
+                <input type="radio" name="status" value="Arbeit" checked onchange="toggleTimeInputs()" class="peer hidden">
+                <div class="text-center p-2 rounded-xl border border-slate-200 bg-slate-50 peer-checked:bg-blue-600 peer-checked:text-white peer-checked:border-blue-600 text-xs font-medium transition">💼 Arbeit</div>
+              </label>
+              <label class="cursor-pointer">
+                <input type="radio" name="status" value="Urlaub" onchange="toggleTimeInputs()" class="peer hidden">
+                <div class="text-center p-2 rounded-xl border border-slate-200 bg-slate-50 peer-checked:bg-blue-600 peer-checked:text-white peer-checked:border-blue-600 text-xs font-medium transition">🌴 Urlaub</div>
+              </label>
+              <label class="cursor-pointer">
+                <input type="radio" name="status" value="Krank" onchange="toggleTimeInputs()" class="peer hidden">
+                <div class="text-center p-2 rounded-xl border border-slate-200 bg-slate-50 peer-checked:bg-blue-600 peer-checked:text-white peer-checked:border-blue-600 text-xs font-medium transition">🩺 Krank</div>
+              </label>
+              <label class="cursor-pointer">
+                <input type="radio" name="status" value="Kind" onchange="toggleTimeInputs()" class="peer hidden">
+                <div class="text-center p-2 rounded-xl border border-slate-200 bg-slate-50 peer-checked:bg-blue-600 peer-checked:text-white peer-checked:border-blue-600 text-xs font-medium transition">👶 Kind Krank</div>
+              </label>
+              <label class="cursor-pointer">
+                <input type="radio" name="status" value="Feiertag" onchange="toggleTimeInputs()" class="peer hidden">
+                <div class="text-center p-2 rounded-xl border border-slate-200 bg-slate-50 peer-checked:bg-blue-600 peer-checked:text-white peer-checked:border-blue-600 text-xs font-medium transition">🎉 Feiertag</div>
+              </label>
+              <label class="cursor-pointer">
+                <input type="radio" name="status" value="Frei" onchange="toggleTimeInputs()" class="peer hidden">
+                <div class="text-center p-2 rounded-xl border border-slate-200 bg-slate-50 peer-checked:bg-blue-600 peer-checked:text-white peer-checked:border-blue-600 text-xs font-medium transition">☕ Frei</div>
+              </label>
+            </div>
+          </div>
 
-            // Automatische Berechnung des Tages-Solls (Wochenstunden / 5 Tage)
-            const sollStundenTag = useMemo(() => {
-                const ws = Number(wochenSoll) || 0;
-                return ws > 0 ? ws / 5 : 0;
-            }, [wochenSoll]);
+          <!-- Zeiten (Nur bei Arbeit) -->
+          <div id="time-inputs" class="grid grid-cols-3 gap-2">
+            <div>
+              <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Beginn</label>
+              <input type="time" id="input-start" value="08:00" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-center font-medium focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Ende</label>
+              <input type="time" id="input-end" value="16:30" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-center font-medium focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Pause (Min)</label>
+              <input type="number" id="input-pause" value="30" step="5" min="0" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-center font-medium focus:ring-2 focus:ring-blue-500">
+            </div>
+          </div>
 
-            // Save entries: key YYYY-MM-DD -> { type, beginn, ende, pause, hours }
-            const [entries, setEntries] = useState(() => {
-                const saved = localStorage.getItem('zeiterfassung_entries');
-                return saved ? JSON.parse(saved) : {};
-            });
+          <!-- Notiz -->
+          <div>
+            <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Notiz / Bemerkung</label>
+            <input type="text" id="input-note" placeholder="z. B. Filiale, Projekt..." class="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-slate-800 text-sm focus:ring-2 focus:ring-blue-500">
+          </div>
 
-            // TOAST BENACHRICHTIGUNG
-            const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
-            const toastTimerRef = useRef(null);
+          <!-- Speichern Button -->
+          <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg shadow-blue-500/30 flex items-center justify-center gap-2 transition active:scale-[0.98]">
+            <span>Eintrag speichern</span>
+          </button>
+        </form>
+      </div>
+    </div>
 
-            const showToast = (message, type = 'success') => {
-                if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-                setToast({ show: true, message, type });
-                toastTimerRef.current = setTimeout(() => {
-                    setToast({ show: false, message: '', type: 'success' });
-                }, 2500);
-            };
+    <!-- TAB 2: ÜBERSICHT & STUNDENZETTEL -->
+    <div id="tab-overview" class="space-y-4">
+      
+      <!-- Monatswahl & Monats-Statistik -->
+      <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 space-y-4">
+        
+        <!-- Monats-Umschalter (◄ Monat ►) -->
+        <div class="flex items-center justify-between no-print border-b border-slate-100 pb-3">
+          <button onclick="changeMonth(-1)" class="p-2 bg-slate-100 hover:bg-slate-200 rounded-xl font-bold text-slate-700 transition">
+            ◄
+          </button>
+          <div class="text-center">
+            <span id="current-month-display" class="text-lg font-bold text-slate-800">September 2026</span>
+          </div>
+          <button onclick="changeMonth(1)" class="p-2 bg-slate-100 hover:bg-slate-200 rounded-xl font-bold text-slate-700 transition">
+            ►
+          </button>
+        </div>
 
-            // Save to localStorage
-            useEffect(() => {
-                localStorage.setItem('zeiterfassung_entries', JSON.stringify(entries));
-            }, [entries]);
+        <!-- Wochen-Soll & Bilanz -->
+        <div class="grid grid-cols-2 gap-3 no-print">
+          <div>
+            <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Wochen-Soll (Std.)</label>
+            <input type="number" id="input-weekly-target" value="28.5" step="0.5" onchange="updateOverview()" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2 text-center font-bold text-slate-800">
+          </div>
+          <div class="bg-blue-50 border border-blue-100 rounded-xl p-2 text-center">
+            <span class="block text-xs uppercase font-semibold text-blue-600">Monats-Soll</span>
+            <span id="stat-target" class="text-lg font-bold text-blue-900">0.0 Std.</span>
+          </div>
+        </div>
 
-            // Selected Month Helper (YYYY-MM)
-            const currentYearMonth = selectedDate.substring(0, 7);
+        <div class="grid grid-cols-2 gap-3 no-print">
+          <div class="bg-emerald-50 border border-emerald-100 rounded-xl p-2 text-center">
+            <span class="block text-xs uppercase font-semibold text-emerald-600">Geleistet (Ist)</span>
+            <span id="stat-actual" class="text-lg font-bold text-emerald-900">0.00 Std.</span>
+          </div>
+          <div id="diff-box" class="bg-slate-50 border border-slate-200 rounded-xl p-2 text-center">
+            <span class="block text-xs uppercase font-semibold text-slate-500">Differenz</span>
+            <span id="stat-diff" class="text-lg font-bold text-slate-800">0.00 Std.</span>
+          </div>
+        </div>
+      </div>
 
-            // Month Navigation Handler (◄ / ►)
-            const changeMonth = (delta) => {
-                const [y, m] = currentYearMonth.split('-').map(Number);
-                const targetDate = new Date(y, m - 1 + delta, 1);
-                const yearStr = targetDate.getFullYear();
-                const monthStr = String(targetDate.getMonth() + 1).padStart(2, '0');
-                setSelectedDate(`${yearStr}-${monthStr}-01`);
-            };
+      <!-- Tabelle der Einträge -->
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-100 text-slate-600 font-semibold uppercase border-b border-slate-200">
+              <tr>
+                <th class="p-2.5">Tag / Datum</th>
+                <th class="p-2.5">Status / Zeit</th>
+                <th class="p-2.5 text-right">Std.</th>
+                <th class="p-2.5 text-center no-print" style="width: 40px;"></th>
+              </tr>
+            </thead>
+            <tbody id="entries-list" class="divide-y divide-slate-100">
+              <!-- Dynamische Zeilen -->
+            </tbody>
+          </table>
+        </div>
+      </div>
 
-            // Netto Minutes calculation for current entry
-            const netMinutes = useMemo(() => {
-                if (!beginn || !ende) return 0;
-                const [bH, bM] = beginn.split(':').map(Number);
-                const [eH, eM] = ende.split(':').map(Number);
-                if (isNaN(bH) || isNaN(eH)) return 0;
+      <!-- DRUCK-STATISTIK & UNTERSCHRIFTEN (Nur im Druck sichtbar) -->
+      <div class="print-only mt-4 space-y-4">
+        <div class="flex justify-between border-t border-b border-slate-300 py-2 text-xs font-semibold">
+          <div>Monats-Soll: <span id="print-stat-target">0.0 Std.</span></div>
+          <div>Geleistet (Ist): <span id="print-stat-actual">0.0 Std.</span></div>
+          <div>Differenz / Überstunden: <span id="print-stat-diff">0.0 Std.</span></div>
+        </div>
 
-                let startMin = bH * 60 + (bM || 0);
-                let endMin = eH * 60 + (eM || 0);
-                let pauseMin = parseInt(pause, 10) || 0;
+        <div class="pt-8 grid grid-cols-2 gap-8 text-xs text-slate-600">
+          <div class="border-t border-slate-400 pt-1 text-center">
+            Datum, Unterschrift Mitarbeiter
+          </div>
+          <div class="border-t border-slate-400 pt-1 text-center">
+            Datum, Unterschrift Vorgesetzter
+          </div>
+        </div>
+      </div>
 
-                if (endMin < startMin) endMin += 24 * 60; // Nightshift
-                return Math.max(0, endMin - startMin - pauseMin);
-            }, [beginn, ende, pause]);
+    </div>
+  </main>
 
-            const netHoursFormatted = useMemo(() => {
-                const hrs = Math.floor(netMinutes / 60);
-                const mins = netMinutes % 60;
-                return `${hrs} Std. ${mins} Min.`;
-            }, [netMinutes]);
+  <!-- Untere Menüleiste (Tabs) -->
+  <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-2 no-print z-20">
+    <div class="max-w-md mx-auto grid grid-cols-2 gap-2">
+      <button onclick="switchTab('form')" id="btn-tab-form" class="flex flex-col items-center justify-center p-2 rounded-xl text-blue-600 font-medium text-xs">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+        <span>Eintragen</span>
+      </button>
+      <button onclick="switchTab('overview')" id="btn-tab-overview" class="flex flex-col items-center justify-center p-2 rounded-xl text-slate-400 hover:text-slate-600 font-medium text-xs">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002 2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
+        <span>Übersicht</span>
+      </button>
+    </div>
+  </nav>
 
-            // Effective hours calculation for an entry
-            const getEntryHours = (entry) => {
-                if (!entry) return 0;
-                const typeObj = TYPES.find(t => t.id === entry.type);
-                if (typeObj && typeObj.isAbsence) {
-                    return sollStundenTag;
-                }
-                if (entry.type === 'frei') return 0;
-                return entry.hours || 0;
-            };
+  <!-- TOAST BENACHRICHTIGUNG (Kein Browser-Popup) -->
+  <div id="toast" class="fixed bottom-16 left-1/2 transform -translate-x-1/2 bg-slate-900 text-white text-xs px-4 py-3 rounded-xl shadow-2xl transition-all duration-300 opacity-0 pointer-events-none z-50 flex items-center gap-2">
+    <span id="toast-message">Meldung</span>
+  </div>
 
-            // Save Entry
-            const handleSave = () => {
-                const calculatedHours = entryType === 'arbeit' ? (netMinutes / 60) : sollStundenTag;
-                
-                const newEntry = {
-                    date: selectedDate,
-                    type: entryType,
-                    beginn: entryType === 'arbeit' ? beginn : '-',
-                    ende: entryType === 'arbeit' ? ende : '-',
-                    pause: entryType === 'arbeit' ? pause : '0',
-                    hours: calculatedHours
-                };
+  <script>
+    // System-Zustand
+    let currentDate = new Date();
+    let activeTab = 'form';
 
-                setEntries(prev => ({
-                    ...prev,
-                    [selectedDate]: newEntry
-                }));
+    // Initialisierung beim Laden
+    window.onload = function() {
+      // Heutiges Datum als Standard festlegen
+      const today = new Date().toISOString().split('T')[0];
+      document.getElementById('input-date').value = today;
 
-                showToast('Eintrag gespeichert! 🎉');
-            };
+      // Gespeichertes Wochen-Soll laden
+      const savedWeeklyTarget = localStorage.getItem('zeiterfassung_weekly_target');
+      if (savedWeeklyTarget) {
+        document.getElementById('input-weekly-target').value = savedWeeklyTarget;
+      }
 
-            // Calculate Monthly Totals
-            const monthStats = useMemo(() => {
-                const [year, month] = currentYearMonth.split('-').map(Number);
-                const daysInMonth = new Date(year, month, 0).getDate();
-                
-                let geleistet = 0;
-                let urlaubTage = 0;
-                let krankTage = 0;
-                let kindTage = 0;
-                let feiertage = 0;
+      updateOverview();
+    };
 
-                for (let d = 1; d <= daysInMonth; d++) {
-                    const dateStr = `${currentYearMonth}-${String(d).padStart(2, '0')}`;
-                    const entry = entries[dateStr];
-                    if (entry) {
-                        const hrs = getEntryHours(entry);
-                        geleistet += hrs;
+    // Tab Wechseln (Eintragen vs. Übersicht)
+    function switchTab(tab) {
+      activeTab = tab;
+      const formEl = document.getElementById('tab-form');
+      const overviewEl = document.getElementById('tab-overview');
+      const btnForm = document.getElementById('btn-tab-form');
+      const btnOverview = document.getElementById('btn-tab-overview');
 
-                        if (entry.type === 'urlaub') urlaubTage++;
-                        if (entry.type === 'krank') krankTage++;
-                        if (entry.type === 'kind') kindTage++;
-                        if (entry.type === 'feiertag') feiertage++;
-                    }
-                }
+      if (tab === 'form') {
+        formEl.classList.remove('hidden');
+        overviewEl.classList.add('hidden');
+        btnForm.className = "flex flex-col items-center justify-center p-2 rounded-xl text-blue-600 font-medium text-xs";
+        btnOverview.className = "flex flex-col items-center justify-center p-2 rounded-xl text-slate-400 hover:text-slate-600 font-medium text-xs";
+      } else {
+        formEl.classList.add('hidden');
+        overviewEl.classList.remove('hidden');
+        btnForm.className = "flex flex-col items-center justify-center p-2 rounded-xl text-slate-400 hover:text-slate-600 font-medium text-xs";
+        btnOverview.className = "flex flex-col items-center justify-center p-2 rounded-xl text-blue-600 font-medium text-xs";
+        updateOverview();
+      }
+    }
 
-                const monatsSoll = wochenSoll * 4.4;
-                const differenz = geleistet - monatsSoll;
+    // Eingabefelder anpassen je nach Status
+    function toggleTimeInputs() {
+      const status = document.querySelector('input[name="status"]:checked').value;
+      const timeInputs = document.getElementById('time-inputs');
+      if (status === 'Arbeit') {
+        timeInputs.style.display = 'grid';
+      } else {
+        timeInputs.style.display = 'none';
+      }
+    }
 
-                const monthName = MONTH_NAMES[month - 1] || '';
+    // Eintrag Speichern
+    function saveEntry(e) {
+      e.preventDefault();
 
-                return {
-                    year,
-                    month,
-                    monthName,
-                    monatsSoll,
-                    geleistet,
-                    differenz,
-                    daysInMonth,
-                    urlaubTage,
-                    krankTage,
-                    kindTage,
-                    feiertage
-                };
-            }, [entries, currentYearMonth, wochenSoll, sollStundenTag]);
+      const dateVal = document.getElementById('input-date').value;
+      const statusVal = document.querySelector('input[name="status"]:checked').value;
+      const startVal = document.getElementById('input-start').value;
+      const endVal = document.getElementById('input-end').value;
+      const pauseVal = parseInt(document.getElementById('input-pause').value) || 0;
+      const noteVal = document.getElementById('input-note').value;
 
-            return (
-                <div className="min-h-screen bg-slate-900 text-slate-100">
-                    
-                    {/* APP INTERFACE (HIDDEN WHEN PRINTING) */}
-                    <div className="no-print max-w-md mx-auto min-h-screen flex flex-col relative pb-20">
-                        
-                        {/* App Header */}
-                        <header className="bg-blue-900 px-4 py-3 flex items-center justify-between border-b border-blue-800 shadow-md">
-                            <div className="flex items-center gap-2">
-                                <span className="text-xl">⏱️</span>
-                                <h1 className="font-bold text-base text-white tracking-wide">Zeiterfassung</h1>
-                            </div>
-                            <button 
-                                onClick={() => window.print()}
-                                className="bg-blue-800 hover:bg-blue-700 text-blue-100 text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5 border border-blue-700 transition"
-                            >
-                                🖨️ Drucken / PDF
-                            </button>
-                        </header>
+      let hours = 0;
+      const weeklyTarget = parseFloat(document.getElementById('input-weekly-target').value) || 0;
+      const dailyTarget = weeklyTarget / 5;
 
-                        {/* TAB 1: EINTRAGEN */}
-                        {tab === 'eintragen' ? (
-                            <main className="p-4 flex-1 space-y-4">
-                                
-                                {/* Datum-Auswahl */}
-                                <div className="bg-slate-800 p-3 rounded-xl border border-slate-700/60 shadow">
-                                    <label className="block text-xs text-slate-400 mb-1">Datum</label>
-                                    <input 
-                                        type="date"
-                                        value={selectedDate}
-                                        onChange={(e) => setSelectedDate(e.target.value)}
-                                        className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-white focus:outline-none focus:border-blue-500"
-                                    />
-                                </div>
+      if (statusVal === 'Arbeit') {
+        if (startVal && endVal) {
+          const [sH, sM] = startVal.split(':').map(Number);
+          const [eH, eM] = endVal.split(':').map(Number);
+          let startMin = sH * 60 + sM;
+          let endMin = eH * 60 + eM;
+          if (endMin < startMin) endMin += 24 * 60; // Über Mitternacht
+          let diffMin = endMin - startMin - pauseVal;
+          if (diffMin < 0) diffMin = 0;
+          hours = diffMin / 60;
+        }
+      } else if (['Urlaub', 'Krank', 'Kind'].includes(statusVal)) {
+        hours = dailyTarget;
+      }
 
-                                {/* Status-Buttons Grid */}
-                                <div className="grid grid-cols-3 gap-2">
-                                    {TYPES.map(t => {
-                                        const active = entryType === t.id;
-                                        return (
-                                            <button
-                                                key={t.id}
-                                                type="button"
-                                                onClick={() => setEntryType(t.id)}
-                                                className={`p-2.5 rounded-xl border flex items-center justify-center gap-1.5 text-xs font-medium transition ${
-                                                    active 
-                                                        ? 'bg-blue-600/20 border-blue-500 text-blue-300 font-bold shadow-inner' 
-                                                        : 'bg-slate-800/80 border-slate-700 text-slate-300 hover:bg-slate-700'
-                                                }`}
-                                            >
-                                                <span className="text-sm">{t.icon}</span>
-                                                <span>{t.label}</span>
-                                            </button>
-                                        );
-                                    })}
-                                </div>
+      const entry = {
+        date: dateVal,
+        status: statusVal,
+        start: startVal,
+        end: endVal,
+        pause: pauseVal,
+        hours: hours,
+        note: noteVal
+      };
 
-                                {/* Zeiten Eingabe (wenn Typ == Arbeit) */}
-                                {entryType === 'arbeit' ? (
-                                    <div className="bg-slate-800 p-4 rounded-xl border border-slate-700/60 shadow space-y-3">
-                                        <div className="grid grid-cols-3 gap-2 text-center">
-                                            <div>
-                                                <label className="block text-[11px] text-slate-400 mb-1">Beginn</label>
-                                                <input 
-                                                    type="time" 
-                                                    value={beginn}
-                                                    onChange={(e) => setBeginn(e.target.value)}
-                                                    className="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-1 text-xs text-center text-white focus:outline-none focus:border-blue-500"
-                                                />
-                                            </div>
-                                            <div>
-                                                <label className="block text-[11px] text-slate-400 mb-1">Ende</label>
-                                                <input 
-                                                    type="time" 
-                                                    value={ende}
-                                                    onChange={(e) => setEnde(e.target.value)}
-                                                    className="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-1 text-xs text-center text-white focus:outline-none focus:border-blue-500"
-                                                />
-                                            </div>
-                                            <div>
-                                                <label className="block text-[11px] text-slate-400 mb-1">Pause (Min)</label>
-                                                <input 
-                                                    type="number" 
-                                                    step="5"
-                                                    value={pause}
-                                                    onChange={(e) => setPause(e.target.value)}
-                                                    className="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-1 text-xs text-center text-white focus:outline-none focus:border-blue-500"
-                                                />
-                                            </div>
-                                        </div>
+      // Speichern im LocalStorage
+      let entries = JSON.parse(localStorage.getItem('zeiterfassung_entries') || '{}');
+      entries[dateVal] = entry;
+      localStorage.setItem('zeiterfassung_entries', JSON.stringify(entries));
 
-                                        <div className="bg-blue-950/50 border border-blue-900/80 rounded-xl p-3 text-center">
-                                            <p className="text-[11px] text-blue-300 font-medium uppercase tracking-wider">Netto-Arbeitszeit</p>
-                                            <p className="text-lg font-bold text-blue-400 mt-0.5">{netHoursFormatted}</p>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div className="bg-slate-800/60 p-4 rounded-xl border border-slate-700/60 text-center text-xs text-slate-400">
-                                        💡 Abwesenheit <b>{TYPES.find(t=>t.id===entryType)?.label}</b> wird automatisch mit <b>{sollStundenTag.toFixed(2)} Std.</b> berechnet.
-                                    </div>
-                                )}
+      showToast('✓ Eintrag gespeichert!');
+      switchTab('overview');
+    }
 
-                                {/* Speichern Button */}
-                                <button
-                                    onClick={handleSave}
-                                    className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-xl shadow-lg active:scale-95 transition flex items-center justify-center gap-2"
-                                >
-                                    <span>💾</span> Eintrag speichern
-                                </button>
+    // Eintrag Löschen
+    function deleteEntry(dateKey) {
+      let entries = JSON.parse(localStorage.getItem('zeiterfassung_entries') || '{}');
+      if (entries[dateKey]) {
+        delete entries[dateKey];
+        localStorage.setItem('zeiterfassung_entries', JSON.stringify(entries));
+        showToast('🗑️ Eintrag gelöscht');
+        updateOverview();
+      }
+    }
 
-                                {/* Einstellungen: Nur noch Wochen-Soll (mit Dezimalunterstützung) */}
-                                <div className="bg-slate-800 p-3 rounded-xl border border-slate-700/60 text-xs">
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-slate-400">Wochen-Soll (Std.):</span>
-                                        <input 
-                                            type="number"
-                                            step="0.5"
-                                            value={wochenSoll}
-                                            onChange={(e) => setWochenSoll(parseFloat(e.target.value) || 0)}
-                                            className="w-24 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-center text-white font-bold"
-                                        />
-                                    </div>
-                                </div>
+    // Monats-Navigation
+    function changeMonth(delta) {
+      currentDate.setMonth(currentDate.getMonth() + delta);
+      updateOverview();
+    }
 
-                                {/* Monats-Übersicht Boxen */}
-                                <div className="grid grid-cols-2 gap-2">
-                                    <div className="bg-slate-800/80 p-3 rounded-xl border border-slate-700/60 text-center">
-                                        <p className="text-[10px] text-slate-400 uppercase font-semibold">Monats-Soll</p>
-                                        <p className="text-sm font-bold text-slate-200 mt-1">{monthStats.monatsSoll.toFixed(1)} Std.</p>
-                                    </div>
-                                    <div className="bg-slate-800/80 p-3 rounded-xl border border-slate-700/60 text-center">
-                                        <p className="text-[10px] text-blue-400 uppercase font-semibold">Geleistet (Ist)</p>
-                                        <p className="text-sm font-bold text-blue-400 mt-1">{monthStats.geleistet.toFixed(2)} Std.</p>
-                                    </div>
-                                </div>
+    // Übersicht & Tabelle Rendern
+    function updateOverview() {
+      const year = currentDate.getFullYear();
+      const month = currentDate.getMonth();
 
-                                <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 flex items-center justify-between">
-                                    <span className="text-xs text-slate-400">Differenz / Überstunden:</span>
-                                    <span className={`text-base font-extrabold ${monthStats.differenz >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                        {monthStats.differenz >= 0 ? '+' : ''}{monthStats.differenz.toFixed(2)} Std.
-                                    </span>
-                                </div>
+      // Wochen-Soll speichern
+      const weeklyTargetInput = document.getElementById('input-weekly-target').value;
+      localStorage.setItem('zeiterfassung_weekly_target', weeklyTargetInput);
 
-                            </main>
-                        ) : (
-                            /* TAB 2: ÜBERSICHT MIT MONATS-SCHALTER (◀ / ▶) */
-                            <main className="p-4 flex-1 space-y-3">
-                                
-                                {/* Monats-Umschalter Header */}
-                                <div className="bg-slate-800 p-3 rounded-xl border border-slate-700 flex items-center justify-between">
-                                    <button 
-                                        onClick={() => changeMonth(-1)}
-                                        className="bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-1.5 rounded-lg text-sm font-bold active:scale-95 transition"
-                                        title="Vorheriger Monat"
-                                    >
-                                        ◀
-                                    </button>
-                                    
-                                    <div className="text-center">
-                                        <p className="text-xs text-slate-400 uppercase font-semibold">Ausgewählter Monat</p>
-                                        <p className="text-base font-extrabold text-blue-400">
-                                            {monthStats.monthName} {monthStats.year}
-                                        </p>
-                                    </div>
+      const monthNames = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
+      const monthTitle = `${monthNames[month]} ${year}`;
+      document.getElementById('current-month-display').innerText = monthTitle;
+      document.getElementById('print-month-title').innerText = `Monat: ${monthTitle}`;
 
-                                    <button 
-                                        onClick={() => changeMonth(1)}
-                                        className="bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-1.5 rounded-lg text-sm font-bold active:scale-95 transition"
-                                        title="Nächster Monat"
-                                    >
-                                        ▶
-                                    </button>
-                                </div>
+      const entries = JSON.parse(localStorage.getItem('zeiterfassung_entries') || '{}');
+      const listEl = document.getElementById('entries-list');
+      listEl.innerHTML = '';
 
-                                {/* Tages-Tabelle */}
-                                <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden text-xs">
-                                    <table className="w-full text-left">
-                                        <thead className="bg-slate-900 text-slate-400 border-b border-slate-700">
-                                            <tr>
-                                                <th className="p-2">Tag</th>
-                                                <th className="p-2">Status</th>
-                                                <th className="p-2 text-right">Std.</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-slate-700/50">
-                                            {Array.from({ length: monthStats.daysInMonth }, (_, i) => {
-                                                const dayNum = i + 1;
-                                                const dateStr = `${currentYearMonth}-${String(dayNum).padStart(2, '0')}`;
-                                                const entry = entries[dateStr];
-                                                const hrs = getEntryHours(entry);
-                                                const typeObj = entry ? TYPES.find(t => t.id === entry.type) : null;
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      let totalActual = 0;
+      let workingDaysCount = 0;
 
-                                                return (
-                                                    <tr key={dateStr} className={entry ? 'bg-slate-800/40' : 'opacity-40'}>
-                                                        <td className="p-2 font-mono font-bold text-slate-300">{dayNum}.</td>
-                                                        <td className="p-2">
-                                                            {typeObj ? `${typeObj.icon} ${typeObj.label}` : '-'}
-                                                        </td>
-                                                        <td className="p-2 text-right font-mono font-bold text-slate-200">
-                                                            {hrs > 0 ? `${hrs.toFixed(1)} h` : '-'}
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            })}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </main>
-                        )}
+      const weeklyTarget = parseFloat(weeklyTargetInput) || 0;
+      const dailyTarget = weeklyTarget / 5;
 
-                        {/* TOAST BENACHRICHTIGUNG */}
-                        {toast.show && (
-                            <div className="fixed bottom-16 left-1/2 -translate-x-1/2 z-50 w-10/12 max-w-xs animate-toast">
-                                <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-2xl shadow-2xl bg-slate-800 border border-slate-600/80 text-white font-medium text-xs backdrop-blur-lg">
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-emerald-400 text-base">✓</span>
-                                        <span className="text-slate-100">{toast.message}</span>
-                                    </div>
-                                    <button 
-                                        onClick={() => setToast({ ...toast, show: false })}
-                                        className="text-slate-400 hover:text-white text-xs px-1"
-                                    >
-                                        ✕
-                                    </button>
-                                </div>
-                            </div>
-                        )}
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dateObj = new Date(year, month, day);
+        const dayOfWeek = dateObj.getDay(); // 0 = So, 6 = Sa
+        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        
+        const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
+        if (!isWeekend) workingDaysCount++;
 
-                        {/* Bottom Navigation */}
-                        <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-slate-900 border-t border-slate-800 grid grid-cols-2 text-center py-2 z-40">
-                            <button
-                                onClick={() => setTab('eintragen')}
-                                className={`flex flex-col items-center gap-0.5 text-[11px] font-medium transition ${
-                                    tab === 'eintragen' ? 'text-blue-400 font-bold' : 'text-slate-500 hover:text-slate-300'
-                                }`}
-                            >
-                                <span className="text-base">➕</span>
-                                <span>Eintragen</span>
-                            </button>
-                            <button
-                                onClick={() => setTab('uebersicht')}
-                                className={`flex flex-col items-center gap-0.5 text-[11px] font-medium transition ${
-                                    tab === 'uebersicht' ? 'text-blue-400 font-bold' : 'text-slate-500 hover:text-slate-300'
-                                }`}
-                            >
-                                <span className="text-base">📋</span>
-                                <span>Übersicht</span>
-                            </button>
-                        </nav>
+        const entry = entries[dateStr];
+        let hours = 0;
+        let details = '-';
+        let statusTag = '';
 
-                    </div>
+        if (entry) {
+          hours = entry.hours || 0;
+          totalActual += hours;
 
-                    {/* DEDIZIERTE DRUCKAUSGABE (EXAKT 1 SEITE DIN A4) */}
-                    <div className="print-only print-sheet text-black font-sans text-[10px] leading-tight p-2">
-                        {/* Kopfzeile */}
-                        <div className="flex justify-between items-end border-b-2 border-black pb-1 mb-2">
-                            <div>
-                                <h1 className="text-base font-black uppercase tracking-tight">STUNDENZETTEL</h1>
-                                <p className="text-[9px] text-gray-600">Arbeitszeiterfassung</p>
-                            </div>
-                            <div className="text-right text-[10px]">
-                                <p><strong>Monat / Jahr:</strong> {monthStats.monthName} {monthStats.year}</p>
-                            </div>
-                        </div>
+          if (entry.status === 'Arbeit') {
+            details = `${entry.start} - ${entry.end} (${entry.pause}M Pause)`;
+            statusTag = '<span class="text-blue-600 font-semibold">💼 Arbeit</span>';
+          } else if (entry.status === 'Urlaub') {
+            statusTag = '<span class="text-amber-600 font-semibold">🌴 Urlaub</span>';
+          } else if (entry.status === 'Krank') {
+            statusTag = '<span class="text-rose-600 font-semibold">🩺 Krank</span>';
+          } else if (entry.status === 'Kind') {
+            statusTag = '<span class="text-purple-600 font-semibold">👶 Kind Krank</span>';
+          } else if (entry.status === 'Feiertag') {
+            statusTag = '<span class="text-emerald-600 font-semibold">🎉 Feiertag</span>';
+          } else {
+            statusTag = '<span class="text-slate-400">☕ Frei</span>';
+          }
 
-                        {/* Stundenzettel Tabelle */}
-                        <table className="w-full text-left border-collapse border border-gray-400 mb-2">
-                            <thead>
-                                <tr className="bg-gray-200 text-black uppercase font-bold border-b border-gray-400 text-[9px]">
-                                    <th className="p-1 border-r border-gray-400 w-8">Tag</th>
-                                    <th className="p-1 border-r border-gray-400 w-24">Status / Typ</th>
-                                    <th className="p-1 border-r border-gray-400 w-16 text-center">Beginn</th>
-                                    <th className="p-1 border-r border-gray-400 w-16 text-center">Ende</th>
-                                    <th className="p-1 border-r border-gray-400 w-12 text-center">Pause</th>
-                                    <th className="p-1 text-right w-16">Stunden</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {Array.from({ length: monthStats.daysInMonth }, (_, i) => {
-                                    const dayNum = i + 1;
-                                    const dateStr = `${currentYearMonth}-${String(dayNum).padStart(2, '0')}`;
-                                    const entry = entries[dateStr];
-                                    const hrs = getEntryHours(entry);
-                                    const typeObj = entry ? TYPES.find(t => t.id === entry.type) : null;
-
-                                    return (
-                                        <tr key={dateStr} className="border-b border-gray-300">
-                                            <td className="p-0.5 px-1 border-r border-gray-300 font-bold text-gray-700 text-center">{dayNum}.</td>
-                                            <td className="p-0.5 px-1 border-r border-gray-300">
-                                                {typeObj ? typeObj.label : 'Arbeit'}
-                                            </td>
-                                            <td className="p-0.5 px-1 border-r border-gray-300 text-center font-mono">
-                                                {entry ? entry.beginn : '-'}
-                                            </td>
-                                            <td className="p-0.5 px-1 border-r border-gray-300 text-center font-mono">
-                                                {entry ? entry.ende : '-'}
-                                            </td>
-                                            <td className="p-0.5 px-1 border-r border-gray-300 text-center font-mono">
-                                                {entry && entry.pause !== '0' ? `${entry.pause} min` : '-'}
-                                            </td>
-                                            <td className="p-0.5 px-1 text-right font-mono font-bold">
-                                                {hrs > 0 ? `${hrs.toFixed(2)} h` : '0.00 h'}
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-
-                        {/* Zusammenfassung & Auswertung */}
-                        <div className="border border-gray-400 p-2 bg-gray-50 rounded mb-4 text-[9px]">
-                            <div className="grid grid-cols-4 gap-2 text-center mb-1">
-                                <div>
-                                    <span className="block text-gray-600 font-semibold uppercase">Monats-Soll</span>
-                                    <span className="font-bold text-[11px]">{monthStats.monatsSoll.toFixed(1)} Std.</span>
-                                </div>
-                                <div>
-                                    <span className="block text-gray-600 font-semibold uppercase">Geleistet (Ist)</span>
-                                    <span className="font-bold text-[11px]">{monthStats.geleistet.toFixed(2)} Std.</span>
-                                </div>
-                                <div>
-                                    <span className="block text-gray-600 font-semibold uppercase">Differenz</span>
-                                    <span className={`font-bold text-[11px] ${monthStats.differenz >= 0 ? 'text-black' : 'text-red-700'}`}>
-                                        {monthStats.differenz >= 0 ? '+' : ''}{monthStats.differenz.toFixed(2)} Std.
-                                    </span>
-                                </div>
-                                <div>
-                                    <span className="block text-gray-600 font-semibold uppercase">Urlaub / Krank</span>
-                                    <span className="font-bold text-[11px]">
-                                        {monthStats.urlaubTage} U / {monthStats.krankTage} K
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Unterschriftenzeilen */}
-                        <div className="grid grid-cols-2 gap-12 pt-6">
-                            <div>
-                                <div className="border-b border-black h-4"></div>
-                                <p className="text-[8px] text-gray-600 mt-1 text-center">Datum, Unterschrift Arbeitnehmer</p>
-                            </div>
-                            <div>
-                                <div className="border-b border-black h-4"></div>
-                                <p className="text-[8px] text-gray-600 mt-1 text-center">Datum, Unterschrift Arbeitgeber</p>
-                            </div>
-                        </div>
-
-                    </div>
-
-                </div>
-            );
+          if (entry.note) {
+            details += ` <i class="text-slate-400">(${entry.note})</i>`;
+          }
+        } else {
+          statusTag = isWeekend ? '<span class="text-slate-300">Wochenende</span>' : '<span class="text-slate-300">-</span>';
         }
 
-        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
-    </script>
+        const dayName = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"][dayOfWeek];
+
+        const tr = document.createElement('tr');
+        tr.className = isWeekend ? "bg-slate-50/60" : "";
+        tr.innerHTML = `
+          <td class="p-2.5 font-medium ${isWeekend ? 'text-slate-400' : 'text-slate-700'}">
+            ${dayName}, ${String(day).padStart(2, '0')}.${String(month + 1).padStart(2, '0')}.
+          </td>
+          <td class="p-2.5">
+            <div>${statusTag}</div>
+            <div class="text-[10px] text-slate-500">${entry ? details : ''}</div>
+          </td>
+          <td class="p-2.5 text-right font-bold ${hours > 0 ? 'text-slate-800' : 'text-slate-300'}">
+            ${hours > 0 ? hours.toFixed(2) + ' Std.' : '-'}
+          </td>
+          <td class="p-2.5 text-center no-print">
+            ${entry ? `<button onclick="deleteEntry('${dateStr}')" title="Eintrag löschen" class="text-rose-500 hover:text-rose-700 p-1 rounded transition">🗑️</button>` : ''}
+          </td>
+        `;
+        listEl.appendChild(tr);
+      }
+
+      // Monats-Soll berechnen
+      const totalTarget = workingDaysCount * dailyTarget;
+      const diff = totalActual - totalTarget;
+
+      document.getElementById('stat-target').innerText = `${totalTarget.toFixed(1)} Std.`;
+      document.getElementById('stat-actual').innerText = `${totalActual.toFixed(2)} Std.`;
+
+      const diffEl = document.getElementById('stat-diff');
+      const diffBox = document.getElementById('diff-box');
+      
+      diffEl.innerText = `${diff >= 0 ? '+' : ''}${diff.toFixed(2)} Std.`;
+      if (diff >= 0) {
+        diffBox.className = "bg-emerald-50 border border-emerald-100 rounded-xl p-2 text-center";
+        diffEl.className = "text-lg font-bold text-emerald-700";
+      } else {
+        diffBox.className = "bg-rose-50 border border-rose-100 rounded-xl p-2 text-center";
+        diffEl.className = "text-lg font-bold text-rose-700";
+      }
+
+      // Druck-Werte
+      document.getElementById('print-stat-target').innerText = `${totalTarget.toFixed(1)} Std.`;
+      document.getElementById('print-stat-actual').innerText = `${totalActual.toFixed(2)} Std.`;
+      document.getElementById('print-stat-diff').innerText = `${diff >= 0 ? '+' : ''}${diff.toFixed(2)} Std.`;
+    }
+
+    // Eigene Toast-Meldung anzeigen
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      const toastMsg = document.getElementById('toast-message');
+      toastMsg.innerText = msg;
+      
+      toast.classList.remove('opacity-0', 'pointer-events-none');
+      toast.classList.add('opacity-100');
+
+      setTimeout(() => {
+        toast.classList.remove('opacity-100');
+        toast.classList.add('opacity-0', 'pointer-events-none');
+      }, 2500);
+    }
+  </script>
 </body>
 </html>
