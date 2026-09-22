@@ -175,11 +175,21 @@
         </form>
       </div>
 
-      <!-- WOCHENSTUNDEN- & MONATSBILANZ (Direkt auf Seite 1) -->
+      <!-- WOCHENSTUNDEN- & MONATSBILANZ (Mit Option 2) -->
       <div class="bg-slate-800 rounded-2xl p-5 border border-slate-700 shadow-lg space-y-4">
-        <div>
-          <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Wochen-Soll (Std.):</label>
-          <input type="number" id="input-weekly-target" value="28.5" step="0.5" onchange="updateOverview()" class="w-full bg-slate-700 border border-slate-600 rounded-xl p-2.5 text-center font-bold text-white text-lg">
+        
+        <!-- Option 2: Kompakte Textzeile mit Ändern-Option -->
+        <div class="flex items-center justify-between text-xs text-slate-400 bg-slate-700/30 p-2.5 rounded-xl border border-slate-700/50">
+          <div id="weekly-view" class="flex items-center justify-between w-full">
+            <span>Basis: <strong id="weekly-val-display" class="text-slate-200">28.5</strong> Std. / Woche</span>
+            <button onclick="toggleWeeklyEdit(true)" class="text-blue-400 font-medium hover:underline ml-2">Ändern</button>
+          </div>
+          <div id="weekly-edit" class="hidden flex items-center gap-2 w-full">
+            <span class="whitespace-nowrap text-slate-300">Wochen-Soll:</span>
+            <input type="number" id="input-weekly-target" value="28.5" step="0.5" class="w-20 bg-slate-700 border border-slate-600 rounded-lg p-1 text-center font-bold text-white text-xs">
+            <span class="text-slate-300">Std.</span>
+            <button onclick="saveWeeklyTarget()" class="ml-auto bg-blue-600 hover:bg-blue-500 text-white font-medium px-2.5 py-1 rounded-lg text-xs">OK</button>
+          </div>
         </div>
 
         <div class="grid grid-cols-2 gap-3">
@@ -267,7 +277,7 @@
         <span>Eintragen</span>
       </button>
       <button onclick="switchTab('overview')" id="btn-tab-overview" class="flex flex-col items-center justify-center p-2 rounded-xl text-slate-400 hover:text-slate-200 font-medium text-xs">
-        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002 2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 012-2h2a2 2 0 012 2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
         <span>Übersicht</span>
       </button>
     </div>
@@ -293,10 +303,34 @@
       const savedWeeklyTarget = localStorage.getItem('zeiterfassung_weekly_target');
       if (savedWeeklyTarget) {
         document.getElementById('input-weekly-target').value = savedWeeklyTarget;
+        document.getElementById('weekly-val-display').innerText = savedWeeklyTarget;
       }
 
       updateOverview();
     };
+
+    // Umschalten zwischen Anzeigen und Bearbeiten des Wochen-Solls
+    function toggleWeeklyEdit(showEdit) {
+      const viewEl = document.getElementById('weekly-view');
+      const editEl = document.getElementById('weekly-edit');
+      if (showEdit) {
+        viewEl.classList.add('hidden');
+        editEl.classList.remove('hidden');
+      } else {
+        viewEl.classList.remove('hidden');
+        editEl.classList.add('hidden');
+      }
+    }
+
+    // Wochen-Soll speichern
+    function saveWeeklyTarget() {
+      const val = document.getElementById('input-weekly-target').value;
+      document.getElementById('weekly-val-display').innerText = val;
+      localStorage.setItem('zeiterfassung_weekly_target', val);
+      toggleWeeklyEdit(false);
+      updateOverview();
+      showToast('✓ Wochen-Soll aktualisiert');
+    }
 
     // Tab Wechseln (Eintragen vs. Übersicht)
     function switchTab(tab) {
@@ -377,7 +411,7 @@
       localStorage.setItem('zeiterfassung_entries', JSON.stringify(entries));
 
       showToast('✓ Eintrag gespeichert!');
-      updateOverview(); // Werte sofort aktualisieren, ohne den Tab zu wechseln!
+      updateOverview();
     }
 
     // Eintrag Löschen
@@ -402,7 +436,6 @@
       const year = currentDate.getFullYear();
       const month = currentDate.getMonth();
 
-      // Wochen-Soll speichern
       const weeklyTargetInput = document.getElementById('input-weekly-target').value;
       localStorage.setItem('zeiterfassung_weekly_target', weeklyTargetInput);
 
