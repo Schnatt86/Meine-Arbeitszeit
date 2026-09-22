@@ -23,11 +23,43 @@
         .animate-toast {
             animation: fadeInUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
+
+        /* PRINT STYLES - GARANTIERT EXACTLY 1 A4 PAGE */
+        @page {
+            size: A4 portrait;
+            margin: 6mm;
+        }
+
         @media print {
-            .no-print { display: none !important; }
-            .print-only { display: block !important; }
-            body { background: white !important; }
-            .sheet { box-shadow: none !important; margin: 0 !important; width: 100% !important; padding: 0 !important; }
+            body {
+                background: white !important;
+                color: black !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            .no-print {
+                display: none !important;
+            }
+            .print-only {
+                display: block !important;
+            }
+            .print-sheet {
+                width: 100% !important;
+                max-width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                box-shadow: none !important;
+                background: white !important;
+            }
+            tr {
+                page-break-inside: avoid !important;
+            }
+        }
+
+        .print-only {
+            display: none;
         }
     </style>
 </head>
@@ -46,24 +78,42 @@
             { id: 'frei', label: 'Frei', icon: '☕', isAbsence: false },
         ];
 
+        const MONTH_NAMES = [
+            "Januar", "Februar", "März", "April", "Mai", "Juni", 
+            "Juli", "August", "September", "Oktober", "November", "Dezember"
+        ];
+
+        // Hilfsfunktion: Heutiges Datum als YYYY-MM-DD
+        const getTodayString = () => {
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = String(today.getMonth() + 1).padStart(2, '0');
+            const day = String(today.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        };
+
         function App() {
             const [tab, setTab] = useState('eintragen'); // 'eintragen' | 'uebersicht'
-            const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
+            const [selectedDate, setSelectedDate] = useState(getTodayString);
             const [entryType, setEntryType] = useState('arbeit');
             const [beginn, setBeginn] = useState('08:00');
             const [ende, setEnde] = useState('16:30');
             const [pause, setPause] = useState('30');
-            const [wochenSoll, setWochenSoll] = useState(15);
-            const [sollStundenTag, setSollStundenTag] = useState(3.0);
-            const [employeeName, setEmployeeName] = useState('Max Mustermann');
+            const [wochenSoll, setWochenSoll] = useState(28.5);
 
-            // Store entries: key YYYY-MM-DD -> { type, beginn, ende, pause, note, hours }
+            // Automatische Berechnung des Tages-Solls (Wochenstunden / 5 Tage)
+            const sollStundenTag = useMemo(() => {
+                const ws = Number(wochenSoll) || 0;
+                return ws > 0 ? ws / 5 : 0;
+            }, [wochenSoll]);
+
+            // Save entries: key YYYY-MM-DD -> { type, beginn, ende, pause, hours }
             const [entries, setEntries] = useState(() => {
                 const saved = localStorage.getItem('zeiterfassung_entries');
                 return saved ? JSON.parse(saved) : {};
             });
 
-            // TOAST STATE (Ersetzt die Browser alert()-Meldung)
+            // TOAST BENACHRICHTIGUNG
             const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
             const toastTimerRef = useRef(null);
 
@@ -75,12 +125,24 @@
                 }, 2500);
             };
 
-            // Save entries to localStorage
+            // Save to localStorage
             useEffect(() => {
                 localStorage.setItem('zeiterfassung_entries', JSON.stringify(entries));
             }, [entries]);
 
-            // Calculate Netto Minutes for current form
+            // Selected Month Helper (YYYY-MM)
+            const currentYearMonth = selectedDate.substring(0, 7);
+
+            // Month Navigation Handler (◄ / ►)
+            const changeMonth = (delta) => {
+                const [y, m] = currentYearMonth.split('-').map(Number);
+                const targetDate = new Date(y, m - 1 + delta, 1);
+                const yearStr = targetDate.getFullYear();
+                const monthStr = String(targetDate.getMonth() + 1).padStart(2, '0');
+                setSelectedDate(`${yearStr}-${monthStr}-01`);
+            };
+
+            // Netto Minutes calculation for current entry
             const netMinutes = useMemo(() => {
                 if (!beginn || !ende) return 0;
                 const [bH, bM] = beginn.split(':').map(Number);
@@ -91,7 +153,7 @@
                 let endMin = eH * 60 + (eM || 0);
                 let pauseMin = parseInt(pause, 10) || 0;
 
-                if (endMin < startMin) endMin += 24 * 60; // nightshift
+                if (endMin < startMin) endMin += 24 * 60; // Nightshift
                 return Math.max(0, endMin - startMin - pauseMin);
             }, [beginn, ende, pause]);
 
@@ -101,20 +163,20 @@
                 return `${hrs} Std. ${mins} Min.`;
             }, [netMinutes]);
 
-            // Calculate effective hours for an entry object
+            // Effective hours calculation for an entry
             const getEntryHours = (entry) => {
                 if (!entry) return 0;
                 const typeObj = TYPES.find(t => t.id === entry.type);
                 if (typeObj && typeObj.isAbsence) {
-                    return Number(sollStundenTag) || 0;
+                    return sollStundenTag;
                 }
                 if (entry.type === 'frei') return 0;
                 return entry.hours || 0;
             };
 
-            // Handle Save Entry
+            // Save Entry
             const handleSave = () => {
-                const calculatedHours = entryType === 'arbeit' ? (netMinutes / 60) : Number(sollStundenTag);
+                const calculatedHours = entryType === 'arbeit' ? (netMinutes / 60) : sollStundenTag;
                 
                 const newEntry = {
                     date: selectedDate,
@@ -130,257 +192,402 @@
                     [selectedDate]: newEntry
                 }));
 
-                // Integrierte Toast-Meldung statt alert()
                 showToast('Eintrag gespeichert! 🎉');
             };
 
-            // Selected Month Stats
-            const currentYearMonth = selectedDate.substring(0, 7); // YYYY-MM
+            // Calculate Monthly Totals
             const monthStats = useMemo(() => {
                 const [year, month] = currentYearMonth.split('-').map(Number);
                 const daysInMonth = new Date(year, month, 0).getDate();
                 
                 let geleistet = 0;
+                let urlaubTage = 0;
+                let krankTage = 0;
+                let kindTage = 0;
+                let feiertage = 0;
+
                 for (let d = 1; d <= daysInMonth; d++) {
                     const dateStr = `${currentYearMonth}-${String(d).padStart(2, '0')}`;
                     const entry = entries[dateStr];
                     if (entry) {
-                        geleistet += getEntryHours(entry);
+                        const hrs = getEntryHours(entry);
+                        geleistet += hrs;
+
+                        if (entry.type === 'urlaub') urlaubTage++;
+                        if (entry.type === 'krank') krankTage++;
+                        if (entry.type === 'kind') kindTage++;
+                        if (entry.type === 'feiertag') feiertage++;
                     }
                 }
 
-                // Monats-Soll (Annahme: 4.4 Wochen pro Monat basierend auf Wochen-Soll)
                 const monatsSoll = wochenSoll * 4.4;
                 const differenz = geleistet - monatsSoll;
 
+                const monthName = MONTH_NAMES[month - 1] || '';
+
                 return {
+                    year,
+                    month,
+                    monthName,
                     monatsSoll,
                     geleistet,
                     differenz,
-                    daysInMonth
+                    daysInMonth,
+                    urlaubTage,
+                    krankTage,
+                    kindTage,
+                    feiertage
                 };
             }, [entries, currentYearMonth, wochenSoll, sollStundenTag]);
 
             return (
-                <div className="max-w-md mx-auto min-h-screen bg-slate-900 text-slate-100 flex flex-col relative pb-20">
+                <div className="min-h-screen bg-slate-900 text-slate-100">
                     
-                    {/* Header */}
-                    <header className="bg-blue-900 px-4 py-3.5 flex items-center justify-between border-b border-blue-800 shadow-md">
-                        <div className="flex items-center gap-2">
-                            <span className="text-xl">⏱️</span>
-                            <h1 className="font-bold text-lg text-white tracking-wide">Zeiterfassung</h1>
-                        </div>
-                        <button 
-                            onClick={() => window.print()}
-                            className="bg-blue-800 hover:bg-blue-700 text-blue-100 text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5 border border-blue-700 transition"
-                        >
-                            <span>📥</span> Export
-                        </button>
-                    </header>
-
-                    {/* MAIN CONTENT AREA */}
-                    {tab === 'eintragen' ? (
-                        <main className="p-4 flex-1 space-y-4">
-                            
-                            {/* Datum Auswahl */}
-                            <div className="bg-slate-800 p-3 rounded-xl border border-slate-700/60 shadow">
-                                <label className="block text-xs text-slate-400 mb-1">Datum</label>
-                                <input 
-                                    type="date"
-                                    value={selectedDate}
-                                    onChange={(e) => setSelectedDate(e.target.value)}
-                                    className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-white focus:outline-none focus:border-blue-500"
-                                />
+                    {/* APP INTERFACE (HIDDEN WHEN PRINTING) */}
+                    <div className="no-print max-w-md mx-auto min-h-screen flex flex-col relative pb-20">
+                        
+                        {/* App Header */}
+                        <header className="bg-blue-900 px-4 py-3 flex items-center justify-between border-b border-blue-800 shadow-md">
+                            <div className="flex items-center gap-2">
+                                <span className="text-xl">⏱️</span>
+                                <h1 className="font-bold text-base text-white tracking-wide">Zeiterfassung</h1>
                             </div>
+                            <button 
+                                onClick={() => window.print()}
+                                className="bg-blue-800 hover:bg-blue-700 text-blue-100 text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5 border border-blue-700 transition"
+                            >
+                                🖨️ Drucken / PDF
+                            </button>
+                        </header>
 
-                            {/* Type Grid */}
-                            <div className="grid grid-cols-3 gap-2">
-                                {TYPES.map(t => {
-                                    const active = entryType === t.id;
+                        {/* TAB 1: EINTRAGEN */}
+                        {tab === 'eintragen' ? (
+                            <main className="p-4 flex-1 space-y-4">
+                                
+                                {/* Datum-Auswahl */}
+                                <div className="bg-slate-800 p-3 rounded-xl border border-slate-700/60 shadow">
+                                    <label className="block text-xs text-slate-400 mb-1">Datum</label>
+                                    <input 
+                                        type="date"
+                                        value={selectedDate}
+                                        onChange={(e) => setSelectedDate(e.target.value)}
+                                        className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm text-white focus:outline-none focus:border-blue-500"
+                                    />
+                                </div>
+
+                                {/* Status-Buttons Grid */}
+                                <div className="grid grid-cols-3 gap-2">
+                                    {TYPES.map(t => {
+                                        const active = entryType === t.id;
+                                        return (
+                                            <button
+                                                key={t.id}
+                                                type="button"
+                                                onClick={() => setEntryType(t.id)}
+                                                className={`p-2.5 rounded-xl border flex items-center justify-center gap-1.5 text-xs font-medium transition ${
+                                                    active 
+                                                        ? 'bg-blue-600/20 border-blue-500 text-blue-300 font-bold shadow-inner' 
+                                                        : 'bg-slate-800/80 border-slate-700 text-slate-300 hover:bg-slate-700'
+                                                }`}
+                                            >
+                                                <span className="text-sm">{t.icon}</span>
+                                                <span>{t.label}</span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+
+                                {/* Zeiten Eingabe (wenn Typ == Arbeit) */}
+                                {entryType === 'arbeit' ? (
+                                    <div className="bg-slate-800 p-4 rounded-xl border border-slate-700/60 shadow space-y-3">
+                                        <div className="grid grid-cols-3 gap-2 text-center">
+                                            <div>
+                                                <label className="block text-[11px] text-slate-400 mb-1">Beginn</label>
+                                                <input 
+                                                    type="time" 
+                                                    value={beginn}
+                                                    onChange={(e) => setBeginn(e.target.value)}
+                                                    className="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-1 text-xs text-center text-white focus:outline-none focus:border-blue-500"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-[11px] text-slate-400 mb-1">Ende</label>
+                                                <input 
+                                                    type="time" 
+                                                    value={ende}
+                                                    onChange={(e) => setEnde(e.target.value)}
+                                                    className="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-1 text-xs text-center text-white focus:outline-none focus:border-blue-500"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-[11px] text-slate-400 mb-1">Pause (Min)</label>
+                                                <input 
+                                                    type="number" 
+                                                    step="5"
+                                                    value={pause}
+                                                    onChange={(e) => setPause(e.target.value)}
+                                                    className="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-1 text-xs text-center text-white focus:outline-none focus:border-blue-500"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="bg-blue-950/50 border border-blue-900/80 rounded-xl p-3 text-center">
+                                            <p className="text-[11px] text-blue-300 font-medium uppercase tracking-wider">Netto-Arbeitszeit</p>
+                                            <p className="text-lg font-bold text-blue-400 mt-0.5">{netHoursFormatted}</p>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="bg-slate-800/60 p-4 rounded-xl border border-slate-700/60 text-center text-xs text-slate-400">
+                                        💡 Abwesenheit <b>{TYPES.find(t=>t.id===entryType)?.label}</b> wird automatisch mit <b>{sollStundenTag.toFixed(2)} Std.</b> berechnet.
+                                    </div>
+                                )}
+
+                                {/* Speichern Button */}
+                                <button
+                                    onClick={handleSave}
+                                    className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-xl shadow-lg active:scale-95 transition flex items-center justify-center gap-2"
+                                >
+                                    <span>💾</span> Eintrag speichern
+                                </button>
+
+                                {/* Einstellungen: Nur noch Wochen-Soll (mit Dezimalunterstützung) */}
+                                <div className="bg-slate-800 p-3 rounded-xl border border-slate-700/60 text-xs">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-slate-400">Wochen-Soll (Std.):</span>
+                                        <input 
+                                            type="number"
+                                            step="0.5"
+                                            value={wochenSoll}
+                                            onChange={(e) => setWochenSoll(parseFloat(e.target.value) || 0)}
+                                            className="w-24 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-center text-white font-bold"
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Monats-Übersicht Boxen */}
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div className="bg-slate-800/80 p-3 rounded-xl border border-slate-700/60 text-center">
+                                        <p className="text-[10px] text-slate-400 uppercase font-semibold">Monats-Soll</p>
+                                        <p className="text-sm font-bold text-slate-200 mt-1">{monthStats.monatsSoll.toFixed(1)} Std.</p>
+                                    </div>
+                                    <div className="bg-slate-800/80 p-3 rounded-xl border border-slate-700/60 text-center">
+                                        <p className="text-[10px] text-blue-400 uppercase font-semibold">Geleistet (Ist)</p>
+                                        <p className="text-sm font-bold text-blue-400 mt-1">{monthStats.geleistet.toFixed(2)} Std.</p>
+                                    </div>
+                                </div>
+
+                                <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 flex items-center justify-between">
+                                    <span className="text-xs text-slate-400">Differenz / Überstunden:</span>
+                                    <span className={`text-base font-extrabold ${monthStats.differenz >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                        {monthStats.differenz >= 0 ? '+' : ''}{monthStats.differenz.toFixed(2)} Std.
+                                    </span>
+                                </div>
+
+                            </main>
+                        ) : (
+                            /* TAB 2: ÜBERSICHT MIT MONATS-SCHALTER (◀ / ▶) */
+                            <main className="p-4 flex-1 space-y-3">
+                                
+                                {/* Monats-Umschalter Header */}
+                                <div className="bg-slate-800 p-3 rounded-xl border border-slate-700 flex items-center justify-between">
+                                    <button 
+                                        onClick={() => changeMonth(-1)}
+                                        className="bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-1.5 rounded-lg text-sm font-bold active:scale-95 transition"
+                                        title="Vorheriger Monat"
+                                    >
+                                        ◀
+                                    </button>
+                                    
+                                    <div className="text-center">
+                                        <p className="text-xs text-slate-400 uppercase font-semibold">Ausgewählter Monat</p>
+                                        <p className="text-base font-extrabold text-blue-400">
+                                            {monthStats.monthName} {monthStats.year}
+                                        </p>
+                                    </div>
+
+                                    <button 
+                                        onClick={() => changeMonth(1)}
+                                        className="bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-1.5 rounded-lg text-sm font-bold active:scale-95 transition"
+                                        title="Nächster Monat"
+                                    >
+                                        ▶
+                                    </button>
+                                </div>
+
+                                {/* Tages-Tabelle */}
+                                <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden text-xs">
+                                    <table className="w-full text-left">
+                                        <thead className="bg-slate-900 text-slate-400 border-b border-slate-700">
+                                            <tr>
+                                                <th className="p-2">Tag</th>
+                                                <th className="p-2">Status</th>
+                                                <th className="p-2 text-right">Std.</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-700/50">
+                                            {Array.from({ length: monthStats.daysInMonth }, (_, i) => {
+                                                const dayNum = i + 1;
+                                                const dateStr = `${currentYearMonth}-${String(dayNum).padStart(2, '0')}`;
+                                                const entry = entries[dateStr];
+                                                const hrs = getEntryHours(entry);
+                                                const typeObj = entry ? TYPES.find(t => t.id === entry.type) : null;
+
+                                                return (
+                                                    <tr key={dateStr} className={entry ? 'bg-slate-800/40' : 'opacity-40'}>
+                                                        <td className="p-2 font-mono font-bold text-slate-300">{dayNum}.</td>
+                                                        <td className="p-2">
+                                                            {typeObj ? `${typeObj.icon} ${typeObj.label}` : '-'}
+                                                        </td>
+                                                        <td className="p-2 text-right font-mono font-bold text-slate-200">
+                                                            {hrs > 0 ? `${hrs.toFixed(1)} h` : '-'}
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </main>
+                        )}
+
+                        {/* TOAST BENACHRICHTIGUNG */}
+                        {toast.show && (
+                            <div className="fixed bottom-16 left-1/2 -translate-x-1/2 z-50 w-10/12 max-w-xs animate-toast">
+                                <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-2xl shadow-2xl bg-slate-800 border border-slate-600/80 text-white font-medium text-xs backdrop-blur-lg">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-emerald-400 text-base">✓</span>
+                                        <span className="text-slate-100">{toast.message}</span>
+                                    </div>
+                                    <button 
+                                        onClick={() => setToast({ ...toast, show: false })}
+                                        className="text-slate-400 hover:text-white text-xs px-1"
+                                    >
+                                        ✕
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Bottom Navigation */}
+                        <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-slate-900 border-t border-slate-800 grid grid-cols-2 text-center py-2 z-40">
+                            <button
+                                onClick={() => setTab('eintragen')}
+                                className={`flex flex-col items-center gap-0.5 text-[11px] font-medium transition ${
+                                    tab === 'eintragen' ? 'text-blue-400 font-bold' : 'text-slate-500 hover:text-slate-300'
+                                }`}
+                            >
+                                <span className="text-base">➕</span>
+                                <span>Eintragen</span>
+                            </button>
+                            <button
+                                onClick={() => setTab('uebersicht')}
+                                className={`flex flex-col items-center gap-0.5 text-[11px] font-medium transition ${
+                                    tab === 'uebersicht' ? 'text-blue-400 font-bold' : 'text-slate-500 hover:text-slate-300'
+                                }`}
+                            >
+                                <span className="text-base">📋</span>
+                                <span>Übersicht</span>
+                            </button>
+                        </nav>
+
+                    </div>
+
+                    {/* DEDIZIERTE DRUCKAUSGABE (EXAKT 1 SEITE DIN A4) */}
+                    <div className="print-only print-sheet text-black font-sans text-[10px] leading-tight p-2">
+                        {/* Kopfzeile */}
+                        <div className="flex justify-between items-end border-b-2 border-black pb-1 mb-2">
+                            <div>
+                                <h1 className="text-base font-black uppercase tracking-tight">STUNDENZETTEL</h1>
+                                <p className="text-[9px] text-gray-600">Arbeitszeiterfassung</p>
+                            </div>
+                            <div className="text-right text-[10px]">
+                                <p><strong>Monat / Jahr:</strong> {monthStats.monthName} {monthStats.year}</p>
+                            </div>
+                        </div>
+
+                        {/* Stundenzettel Tabelle */}
+                        <table className="w-full text-left border-collapse border border-gray-400 mb-2">
+                            <thead>
+                                <tr className="bg-gray-200 text-black uppercase font-bold border-b border-gray-400 text-[9px]">
+                                    <th className="p-1 border-r border-gray-400 w-8">Tag</th>
+                                    <th className="p-1 border-r border-gray-400 w-24">Status / Typ</th>
+                                    <th className="p-1 border-r border-gray-400 w-16 text-center">Beginn</th>
+                                    <th className="p-1 border-r border-gray-400 w-16 text-center">Ende</th>
+                                    <th className="p-1 border-r border-gray-400 w-12 text-center">Pause</th>
+                                    <th className="p-1 text-right w-16">Stunden</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {Array.from({ length: monthStats.daysInMonth }, (_, i) => {
+                                    const dayNum = i + 1;
+                                    const dateStr = `${currentYearMonth}-${String(dayNum).padStart(2, '0')}`;
+                                    const entry = entries[dateStr];
+                                    const hrs = getEntryHours(entry);
+                                    const typeObj = entry ? TYPES.find(t => t.id === entry.type) : null;
+
                                     return (
-                                        <button
-                                            key={t.id}
-                                            type="button"
-                                            onClick={() => setEntryType(t.id)}
-                                            className={`p-2.5 rounded-xl border flex items-center justify-center gap-2 text-xs font-medium transition ${
-                                                active 
-                                                    ? 'bg-blue-600/20 border-blue-500 text-blue-300 font-bold shadow-inner' 
-                                                    : 'bg-slate-800/80 border-slate-700 text-slate-300 hover:bg-slate-700'
-                                            }`}
-                                        >
-                                            <span className="text-sm">{t.icon}</span>
-                                            <span>{t.label}</span>
-                                        </button>
+                                        <tr key={dateStr} className="border-b border-gray-300">
+                                            <td className="p-0.5 px-1 border-r border-gray-300 font-bold text-gray-700 text-center">{dayNum}.</td>
+                                            <td className="p-0.5 px-1 border-r border-gray-300">
+                                                {typeObj ? typeObj.label : 'Arbeit'}
+                                            </td>
+                                            <td className="p-0.5 px-1 border-r border-gray-300 text-center font-mono">
+                                                {entry ? entry.beginn : '-'}
+                                            </td>
+                                            <td className="p-0.5 px-1 border-r border-gray-300 text-center font-mono">
+                                                {entry ? entry.ende : '-'}
+                                            </td>
+                                            <td className="p-0.5 px-1 border-r border-gray-300 text-center font-mono">
+                                                {entry && entry.pause !== '0' ? `${entry.pause} min` : '-'}
+                                            </td>
+                                            <td className="p-0.5 px-1 text-right font-mono font-bold">
+                                                {hrs > 0 ? `${hrs.toFixed(2)} h` : '0.00 h'}
+                                            </td>
+                                        </tr>
                                     );
                                 })}
-                            </div>
+                            </tbody>
+                        </table>
 
-                            {/* Time Controls (Nur wenn Typ == Arbeit) */}
-                            {entryType === 'arbeit' ? (
-                                <div className="bg-slate-800 p-4 rounded-xl border border-slate-700/60 shadow space-y-3">
-                                    <div className="grid grid-cols-3 gap-2 text-center">
-                                        <div>
-                                            <label className="block text-[11px] text-slate-400 mb-1">Beginn</label>
-                                            <input 
-                                                type="time" 
-                                                value={beginn}
-                                                onChange={(e) => setBeginn(e.target.value)}
-                                                className="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-1 text-xs text-center text-white focus:outline-none focus:border-blue-500"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-[11px] text-slate-400 mb-1">Ende</label>
-                                            <input 
-                                                type="time" 
-                                                value={ende}
-                                                onChange={(e) => setEnde(e.target.value)}
-                                                className="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-1 text-xs text-center text-white focus:outline-none focus:border-blue-500"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-[11px] text-slate-400 mb-1">Pause (Min)</label>
-                                            <input 
-                                                type="number" 
-                                                step="5"
-                                                value={pause}
-                                                onChange={(e) => setPause(e.target.value)}
-                                                className="w-full bg-slate-900 border border-slate-700 rounded-lg py-2 px-1 text-xs text-center text-white focus:outline-none focus:border-blue-500"
-                                            />
-                                        </div>
-                                    </div>
-
-                                    {/* Netto Arbeitszeit Box */}
-                                    <div className="bg-blue-950/50 border border-blue-900/80 rounded-xl p-3 text-center">
-                                        <p className="text-[11px] text-blue-300 font-medium uppercase tracking-wider">Netto-Arbeitszeit</p>
-                                        <p className="text-lg font-bold text-blue-400 mt-0.5">{netHoursFormatted}</p>
-                                    </div>
+                        {/* Zusammenfassung & Auswertung */}
+                        <div className="border border-gray-400 p-2 bg-gray-50 rounded mb-4 text-[9px]">
+                            <div className="grid grid-cols-4 gap-2 text-center mb-1">
+                                <div>
+                                    <span className="block text-gray-600 font-semibold uppercase">Monats-Soll</span>
+                                    <span className="font-bold text-[11px]">{monthStats.monatsSoll.toFixed(1)} Std.</span>
                                 </div>
-                            ) : (
-                                <div className="bg-slate-800/60 p-4 rounded-xl border border-slate-700/60 text-center text-xs text-slate-400">
-                                    💡 Abwesenheit <b>{TYPES.find(t=>t.id===entryType)?.label}</b> wird automatisch mit <b>{sollStundenTag} Std.</b> pauschal berechnet.
+                                <div>
+                                    <span className="block text-gray-600 font-semibold uppercase">Geleistet (Ist)</span>
+                                    <span className="font-bold text-[11px]">{monthStats.geleistet.toFixed(2)} Std.</span>
                                 </div>
-                            )}
-
-                            {/* Speichern Button */}
-                            <button
-                                onClick={handleSave}
-                                className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-xl shadow-lg active:scale-95 transition flex items-center justify-center gap-2"
-                            >
-                                <span>💾</span> Eintrag speichern
-                            </button>
-
-                            {/* Soll-Stunden Konfiguration */}
-                            <div className="bg-slate-800 p-3 rounded-xl border border-slate-700/60 flex items-center justify-between text-xs">
-                                <span className="text-slate-400">Wochen-Soll (Std./Wo.):</span>
-                                <input 
-                                    type="number"
-                                    value={wochenSoll}
-                                    onChange={(e) => setWochenSoll(Number(e.target.value) || 0)}
-                                    className="w-16 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-center text-white font-bold"
-                                />
-                            </div>
-
-                            {/* Stat Summaries */}
-                            <div className="grid grid-cols-2 gap-2">
-                                <div className="bg-slate-800/80 p-3 rounded-xl border border-slate-700/60 text-center">
-                                    <p className="text-[10px] text-slate-400 uppercase font-semibold">Monats-Soll</p>
-                                    <p className="text-sm font-bold text-slate-200 mt-1">{monthStats.monatsSoll.toFixed(1)} Std.</p>
+                                <div>
+                                    <span className="block text-gray-600 font-semibold uppercase">Differenz</span>
+                                    <span className={`font-bold text-[11px] ${monthStats.differenz >= 0 ? 'text-black' : 'text-red-700'}`}>
+                                        {monthStats.differenz >= 0 ? '+' : ''}{monthStats.differenz.toFixed(2)} Std.
+                                    </span>
                                 </div>
-                                <div className="bg-slate-800/80 p-3 rounded-xl border border-slate-700/60 text-center">
-                                    <p className="text-[10px] text-blue-400 uppercase font-semibold">Geleistet (Ist)</p>
-                                    <p className="text-sm font-bold text-blue-400 mt-1">{monthStats.geleistet.toFixed(2)} Std.</p>
+                                <div>
+                                    <span className="block text-gray-600 font-semibold uppercase">Urlaub / Krank</span>
+                                    <span className="font-bold text-[11px]">
+                                        {monthStats.urlaubTage} U / {monthStats.krankTage} K
+                                    </span>
                                 </div>
-                            </div>
-
-                            {/* Differenz Box */}
-                            <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 flex items-center justify-between">
-                                <span className="text-xs text-slate-400">Differenz / Überstunden:</span>
-                                <span className={`text-base font-extrabold ${monthStats.differenz >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                    {monthStats.differenz >= 0 ? '+' : ''}{monthStats.differenz.toFixed(2)} Std.
-                                </span>
-                            </div>
-
-                        </main>
-                    ) : (
-                        /* TAB 2: ÜBERSICHT / LISTE */
-                        <main className="p-4 flex-1 space-y-3">
-                            <h2 className="text-sm font-bold text-slate-300 flex items-center gap-2 mb-2">
-                                📋 Monatsübersicht ({currentYearMonth})
-                            </h2>
-                            <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden text-xs">
-                                <table className="w-full text-left">
-                                    <thead className="bg-slate-900 text-slate-400 border-b border-slate-700">
-                                        <tr>
-                                            <th className="p-2">Datum</th>
-                                            <th className="p-2">Typ</th>
-                                            <th className="p-2 text-right">Std.</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-700/50">
-                                        {Array.from({ length: monthStats.daysInMonth }, (_, i) => {
-                                            const dayNum = i + 1;
-                                            const dateStr = `${currentYearMonth}-${String(dayNum).padStart(2, '0')}`;
-                                            const entry = entries[dateStr];
-                                            const hrs = getEntryHours(entry);
-                                            const typeObj = entry ? TYPES.find(t => t.id === entry.type) : null;
-
-                                            return (
-                                                <tr key={dateStr} className={entry ? 'bg-slate-800/40' : 'opacity-40'}>
-                                                    <td className="p-2 font-mono">{dayNum}.</td>
-                                                    <td className="p-2">
-                                                        {typeObj ? `${typeObj.icon} ${typeObj.label}` : '-'}
-                                                    </td>
-                                                    <td className="p-2 text-right font-mono font-bold text-slate-200">
-                                                        {hrs > 0 ? `${hrs.toFixed(1)} h` : '-'}
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </main>
-                    )}
-
-                    {/* NATIVE-LOOKING TOAST BENACHRICHTIGUNG (Kein Browser alert() mehr!) */}
-                    {toast.show && (
-                        <div className="fixed bottom-16 left-1/2 -translate-x-1/2 z-50 w-10/12 max-w-xs animate-toast">
-                            <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-2xl shadow-2xl bg-slate-800 border border-slate-600/80 text-white font-medium text-xs backdrop-blur-lg">
-                                <div className="flex items-center gap-2">
-                                    <span className="text-emerald-400 text-base">✓</span>
-                                    <span className="text-slate-100">{toast.message}</span>
-                                </div>
-                                <button 
-                                    onClick={() => setToast({ ...toast, show: false })}
-                                    className="text-slate-400 hover:text-white text-xs px-1"
-                                >
-                                    ✕
-                                </button>
                             </div>
                         </div>
-                    )}
 
-                    {/* Bottom Navigation Bar */}
-                    <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-slate-900 border-t border-slate-800 grid grid-cols-2 text-center py-2 z-40">
-                        <button
-                            onClick={() => setTab('eintragen')}
-                            className={`flex flex-col items-center gap-0.5 text-[11px] font-medium transition ${
-                                tab === 'eintragen' ? 'text-blue-400 font-bold' : 'text-slate-500 hover:text-slate-300'
-                            }`}
-                        >
-                            <span className="text-base">➕</span>
-                            <span>Eintragen</span>
-                        </button>
-                        <button
-                            onClick={() => setTab('uebersicht')}
-                            className={`flex flex-col items-center gap-0.5 text-[11px] font-medium transition ${
-                                tab === 'uebersicht' ? 'text-blue-400 font-bold' : 'text-slate-500 hover:text-slate-300'
-                            }`}
-                        >
-                            <span className="text-base">📋</span>
-                            <span>Übersicht</span>
-                        </button>
-                    </nav>
+                        {/* Unterschriftenzeilen */}
+                        <div className="grid grid-cols-2 gap-12 pt-6">
+                            <div>
+                                <div className="border-b border-black h-4"></div>
+                                <p className="text-[8px] text-gray-600 mt-1 text-center">Datum, Unterschrift Arbeitnehmer</p>
+                            </div>
+                            <div>
+                                <div className="border-b border-black h-4"></div>
+                                <p className="text-[8px] text-gray-600 mt-1 text-center">Datum, Unterschrift Arbeitgeber</p>
+                            </div>
+                        </div>
+
+                    </div>
 
                 </div>
             );
