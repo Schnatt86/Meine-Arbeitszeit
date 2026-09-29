@@ -17,13 +17,12 @@
   <style>
     svg { max-width: 100%; height: auto; }
     
-    /* Oberer Abstand für Statusleiste */
     .header-safe-area {
       padding-top: 28px;
       padding-top: max(28px, env(safe-area-inset-top));
     }
 
-    /* A4-Druckoptimierung: Saubere weiße Druckansicht */
+    /* A4-Druckoptimierung */
     @media print {
       @page {
         size: A4 portrait;
@@ -70,11 +69,10 @@
 </head>
 <body class="bg-slate-900 text-slate-100 font-sans min-h-screen flex flex-col antialiased">
 
-  <!-- Header / Navigation (Ohne Export-Button) -->
+  <!-- Header -->
   <header class="bg-slate-800 border-b border-slate-700 p-4 pb-3 header-safe-area shadow-md no-print sticky top-0 z-20">
-    <div class="max-w-md mx-auto flex justify-between items-center">
+    <div class="max-w-md mx-auto flex items-center justify-between">
       <div class="flex items-center gap-3">
-        <!-- App Logo SVG -->
         <svg class="w-8 h-8 flex-shrink-0" viewBox="0 0 100 100" fill="none">
           <rect width="100" height="100" rx="22" fill="#2563eb"/>
           <rect x="25" y="35" width="50" height="38" rx="5" fill="none" stroke="white" stroke-width="6"/>
@@ -90,7 +88,7 @@
   <!-- Hauptinhalt -->
   <main class="flex-1 max-w-md w-full mx-auto p-4 pb-24 print-container">
     
-    <!-- DRUCK-HEADER (Nur beim Drucken sichtbar) -->
+    <!-- DRUCK-HEADER -->
     <div class="print-only mb-4 border-b-2 border-slate-800 pb-2">
       <div class="flex justify-between items-end">
         <div>
@@ -170,17 +168,15 @@
             <input type="text" id="input-note" placeholder="z. B. Filiale, Projekt..." class="w-full bg-slate-700 border border-slate-600 rounded-xl p-3 text-white text-sm focus:ring-2 focus:ring-blue-500">
           </div>
 
-          <!-- Speichern Button -->
           <button type="submit" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2 transition active:scale-[0.98]">
             <span>💾 Eintrag speichern</span>
           </button>
         </form>
       </div>
 
-      <!-- WOCHENSTUNDEN- & MONATSBILANZ -->
+      <!-- WOCHENSTUNDEN- & MONATSBILANZ (SEITE 1) -->
       <div class="bg-slate-800 rounded-2xl p-5 border border-slate-700 shadow-lg space-y-4">
         
-        <!-- Kompakte Wochenstunden-Basis -->
         <div class="flex items-center justify-between text-xs text-slate-400 bg-slate-700/30 p-2.5 rounded-xl border border-slate-700/50">
           <div id="weekly-view" class="flex items-center justify-between w-full">
             <span>Basis: <strong id="weekly-val-display" class="text-slate-200">28.5</strong> Std. / Woche</span>
@@ -194,7 +190,6 @@
           </div>
         </div>
 
-        <!-- 1. WOCHEN-STATISTIK (Aktuelle Woche) -->
         <div>
           <span class="block text-xs font-bold uppercase text-slate-400 mb-2">Aktuelle Woche</span>
           <div class="grid grid-cols-3 gap-2">
@@ -213,7 +208,6 @@
           </div>
         </div>
 
-        <!-- 2. MONATS-STATISTIK (Aktueller Monat - Kachel-Größe identisch mit Wochen-Statistik) -->
         <div>
           <span class="block text-xs font-bold uppercase text-slate-400 mb-2">Monatsbilanz</span>
           <div class="grid grid-cols-3 gap-2">
@@ -236,10 +230,10 @@
 
     </div>
 
-    <!-- TAB 2: ÜBERSICHT & HISTORIE (Tabelle mit Monats-Wechsler) -->
+    <!-- TAB 2: ÜBERSICHT & HISTORIE -->
     <div id="tab-overview" class="space-y-4 hidden">
       
-      <!-- Monatswahl (◄ Monat Jahr ►) -->
+      <!-- Monatswahl -->
       <div class="bg-slate-800 rounded-2xl p-4 border border-slate-700 shadow-lg no-print">
         <div class="flex items-center justify-between">
           <button type="button" onclick="changeMonth(-1)" class="p-2.5 bg-slate-700 hover:bg-slate-600 rounded-xl font-bold text-white transition active:scale-95">
@@ -251,6 +245,25 @@
           <button type="button" onclick="changeMonth(1)" class="p-2.5 bg-slate-700 hover:bg-slate-600 rounded-xl font-bold text-white transition active:scale-95">
             ►
           </button>
+        </div>
+      </div>
+
+      <!-- ZUSÄTZLICHE MONATSBILANZ AUF SEITE 2 -->
+      <div class="bg-slate-800 rounded-2xl p-4 border border-slate-700 shadow-lg space-y-2 no-print">
+        <span class="block text-xs font-bold uppercase text-slate-400">Monatsbilanz</span>
+        <div class="grid grid-cols-3 gap-2">
+          <div class="bg-slate-700/50 border border-slate-600 rounded-xl p-2.5 text-center">
+            <span class="block text-[10px] uppercase font-semibold text-slate-400">Soll</span>
+            <span id="stat-target-p2" class="text-sm font-bold text-blue-400">0.0 Std.</span>
+          </div>
+          <div class="bg-slate-700/50 border border-slate-600 rounded-xl p-2.5 text-center">
+            <span class="block text-[10px] uppercase font-semibold text-slate-400">Ist</span>
+            <span id="stat-actual-p2" class="text-sm font-bold text-emerald-400">0.00 Std.</span>
+          </div>
+          <div class="bg-slate-700/50 border border-slate-600 rounded-xl p-2.5 text-center">
+            <span class="block text-[10px] uppercase font-semibold text-slate-400">Diff.</span>
+            <span id="stat-diff-p2" class="text-sm font-bold text-slate-300">0.00 Std.</span>
+          </div>
         </div>
       </div>
 
@@ -273,15 +286,15 @@
         </div>
       </div>
 
-      <!-- EXPORT-BUTTON UNTER DER TABELLE AUF TAB 2 -->
+      <!-- EXPORT-BUTTON MIT ANDROID-DRUCK-ERKENNUNG -->
       <div class="no-print pt-1">
-        <button type="button" onclick="window.print()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2 transition active:scale-[0.98]">
+        <button type="button" onclick="triggerPrint()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2 transition active:scale-[0.98]">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
           <span>📄 Monat als A4 / PDF exportieren</span>
         </button>
       </div>
 
-      <!-- DRUCK-STATISTIK & UNTERSCHRIFTEN (Nur im Druck sichtbar) -->
+      <!-- DRUCK-STATISTIK & UNTERSCHRIFTEN -->
       <div class="print-only mt-4 space-y-4">
         <div class="flex justify-between border-t border-b border-slate-300 py-2 text-xs font-semibold text-slate-900">
           <div>Monats-Soll: <span id="print-stat-target">0.0 Std.</span></div>
@@ -337,6 +350,15 @@
 
       updateOverview();
     };
+
+    // Intelligente Druck-Erkennung (Browser vs Android Studio App)
+    function triggerPrint() {
+      if (window.AndroidPrint && typeof window.AndroidPrint.printPage === 'function') {
+        window.AndroidPrint.printPage();
+      } else {
+        window.print();
+      }
+    }
 
     function toggleWeeklyEdit(showEdit) {
       const viewEl = document.getElementById('weekly-view');
@@ -562,16 +584,22 @@
       weekDiffEl.innerText = `${weekDiff >= 0 ? '+' : ''}${weekDiff.toFixed(2)} Std.`;
       weekDiffEl.className = weekDiff >= 0 ? "text-sm font-bold text-emerald-400" : "text-sm font-bold text-rose-400";
 
-      // 2. Monats-Werte setzen
+      // 2. Monats-Werte setzen (Sowohl auf Tab 1 als auch Tab 2)
       const totalTarget = workingDaysCount * dailyTarget;
       const diff = totalActual - totalTarget;
 
       document.getElementById('stat-target-p1').innerText = `${totalTarget.toFixed(1)} Std.`;
       document.getElementById('stat-actual-p1').innerText = `${totalActual.toFixed(2)} Std.`;
+      document.getElementById('stat-target-p2').innerText = `${totalTarget.toFixed(1)} Std.`;
+      document.getElementById('stat-actual-p2').innerText = `${totalActual.toFixed(2)} Std.`;
 
       const diffElP1 = document.getElementById('stat-diff-p1');
       diffElP1.innerText = `${diff >= 0 ? '+' : ''}${diff.toFixed(2)} Std.`;
       diffElP1.className = diff >= 0 ? "text-sm font-bold text-emerald-400" : "text-sm font-bold text-rose-400";
+
+      const diffElP2 = document.getElementById('stat-diff-p2');
+      diffElP2.innerText = `${diff >= 0 ? '+' : ''}${diff.toFixed(2)} Std.`;
+      diffElP2.className = diff >= 0 ? "text-sm font-bold text-emerald-400" : "text-sm font-bold text-rose-400";
 
       // Druck-Werte
       document.getElementById('print-stat-target').innerText = `${totalTarget.toFixed(1)} Std.`;
