@@ -17,10 +17,10 @@
   <style>
     svg { max-width: 100%; height: auto; }
     
-    /* Großzügiger oberer Abstand für Android-Statusleiste (min. 60px) */
+    /* Oberer Abstand für Statusleiste */
     .header-safe-area {
-      padding-top: 60px;
-      padding-top: max(60px, calc(env(safe-area-inset-top) + 20px));
+      padding-top: 28px;
+      padding-top: max(28px, env(safe-area-inset-top));
     }
 
     /* A4-Druckoptimierung: Saubere weiße Druckansicht */
@@ -70,7 +70,7 @@
 </head>
 <body class="bg-slate-900 text-slate-100 font-sans min-h-screen flex flex-col antialiased">
 
-  <!-- Header / Navigation -->
+  <!-- Header / Navigation (Ohne Export-Button) -->
   <header class="bg-slate-800 border-b border-slate-700 p-4 pb-3 header-safe-area shadow-md no-print sticky top-0 z-20">
     <div class="max-w-md mx-auto flex justify-between items-center">
       <div class="flex items-center gap-3">
@@ -84,10 +84,6 @@
         </svg>
         <h1 class="text-xl font-bold tracking-tight text-white">Zeiterfassung</h1>
       </div>
-      <button onclick="window.print()" class="bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium px-3 py-2 rounded-lg flex items-center gap-1 transition active:scale-95">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
-        Export
-      </button>
     </div>
   </header>
 
@@ -217,7 +213,7 @@
           </div>
         </div>
 
-        <!-- 2. MONATS-STATISTIK (Aktueller Monat - Identisches 3-Spalten Format) -->
+        <!-- 2. MONATS-STATISTIK (Aktueller Monat - Kachel-Größe identisch mit Wochen-Statistik) -->
         <div>
           <span class="block text-xs font-bold uppercase text-slate-400 mb-2">Monatsbilanz</span>
           <div class="grid grid-cols-3 gap-2">
@@ -275,6 +271,14 @@
             </tbody>
           </table>
         </div>
+      </div>
+
+      <!-- EXPORT-BUTTON UNTER DER TABELLE AUF TAB 2 -->
+      <div class="no-print pt-1">
+        <button type="button" onclick="window.print()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2 transition active:scale-[0.98]">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+          <span>📄 Monat als A4 / PDF exportieren</span>
+        </button>
       </div>
 
       <!-- DRUCK-STATISTIK & UNTERSCHRIFTEN (Nur im Druck sichtbar) -->
